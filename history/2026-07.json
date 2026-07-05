@@ -1,0 +1,21 @@
+{
+  "signals": {
+    "price": 29329.2109375,
+    "ath": 30660.599609375,
+    "ma200": 26092.52001953125,
+    "vix": 16.149999618530273,
+    "tnx_yield": 4.48,
+    "tnx_change_3m": 0.15000000000000036,
+    "pe": 32.71787,
+    "drawdown_pct": 4.342343883802928
+  },
+  "decision": {
+    "multiplier": 1.0,
+    "amount": 1000,
+    "base_multiplier": 1.0,
+    "tier_hit": "回撤 < 10%（默认档）",
+    "adjustments": []
+  },
+  "warnings": [],
+  "month": "2026-07"
+}
