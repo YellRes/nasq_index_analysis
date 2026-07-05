@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<style>
+  body{font-family:"Microsoft YaHei",sans-serif;max-width:640px;margin:0 auto;
+       padding:16px;color:#1f2329;line-height:1.7}
+  .hero{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+        padding:18px 22px;margin-bottom:18px}
+  .hero .mult{font-size:30px;font-weight:700;color:#2563eb}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left}
+  th{background:#f8fafc}
+  .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;
+        padding:8px 14px;font-size:13px;margin:10px 0}
+  .muted{color:#6b7280;font-size:12px}
+  h3{margin:18px 0 6px;font-size:15px}
+  img{max-width:100%}
+</style></head><body>
+
+<div class="hero">
+  <div>{{ r.month }} 定投建议</div>
+  <div class="mult">{{ r.decision.multiplier }}x —— {{ r.decision.amount }} 元</div>
+  <div>{{ r.decision.tier_hit }}{% for a in r.decision.adjustments %}；{{ a }}{% endfor %}</div>
+</div>
+
+{% if r.warnings %}<div class="warn">⚠️ {{ r.warnings | join("；") }}</div>{% endif %}
+
+{# 设计 §4：环境偏热提示（不改变倍数，仅提示） #}
+{% if r.signals.vix is not none and r.signals.vix < 13
+      and r.signals.drawdown_pct < 1
+      and r.signals.tnx_change_3m is not none and r.signals.tnx_change_3m > 0 %}
+<div class="warn">🌡️ 环境偏热：VIX 极低 + 指数新高 + 利率上行同时出现，可考虑本期只投基准、不加码（倍数建议仍以上方规则为准）</div>
+{% endif %}
+
+<h3>信号面板</h3>
+<table>
+  <tr><th>指标</th><th>数值</th></tr>
+  <tr><td>纳指100 收盘</td><td>{{ "%.0f" | format(r.signals.price) }}（距高点 -{{ "%.1f" | format(r.signals.drawdown_pct) }}%）</td></tr>
+  <tr><td>200 日均线</td><td>{% if r.signals.ma200 %}{{ "%.0f" | format(r.signals.ma200) }}（{{ "均线上方" if r.signals.price >= r.signals.ma200 else "均线下方" }}）{% else %}数据不足{% endif %}</td></tr>
+  <tr><td>10Y 美债</td><td>{% if r.signals.tnx_yield is not none %}{{ "%.2f" | format(r.signals.tnx_yield) }}%{% if r.signals.tnx_change_3m is not none %}（3个月 {{ "%+.2f" | format(r.signals.tnx_change_3m) }}pp）{% endif %}{% else %}缺失{% endif %}</td></tr>
+  <tr><td>VIX</td><td>{% if r.signals.vix is not none %}{{ "%.1f" | format(r.signals.vix) }}{% else %}缺失{% endif %}</td></tr>
+  <tr><td>QQQ PE</td><td>{% if r.signals.pe is not none %}{{ "%.1f" | format(r.signals.pe) }}{% else %}缺失（辅助信号）{% endif %}</td></tr>
+</table>
+
+{% for key, uri in charts.items() %}<img src="{{ uri }}" alt="{{ key }}">{% endfor %}
+
+{% if commentary %}
+<h3>AI 宏观点评</h3>
+<p>{{ commentary }}</p>
+<p class="muted">以上为 AI 生成的参考信息，不构成规则输出，倍数建议只由规则引擎决定。</p>
+{% endif %}
+
+{% if recent %}
+<h3>历史记录（近 12 期）</h3>
+<table><tr><th>月份</th><th>倍数</th><th>金额</th></tr>
+{% for h in recent %}<tr><td>{{ h.month }}</td><td>{{ h.decision.multiplier }}x</td><td>{{ h.decision.amount }} 元</td></tr>{% endfor %}
+</table>
+{% endif %}
+
+<p class="muted">规则引擎自动生成 · 标的无关（可执行于 513100 / QQQ 碎股 / 3086.HK）</p>
+</body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实施计划总览 — 纳指定投监控系统</title>
+<style>
+  :root { --accent:#2563eb; --border:#e5e7eb; --muted:#6b7280; --bg:#f7f8fa; --card:#fff; --text:#1f2329; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text);
+         line-height:1.7; max-width:900px; margin:0 auto; padding:32px 20px 60px; }
+  h1 { font-size:24px; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  h2 { font-size:17px; margin:28px 0 10px; padding-left:10px; border-left:4px solid var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:14px; background:var(--card); }
+  th,td { border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top; }
+  th { background:#eff6ff; }
+  .phase { font-weight:700; color:var(--accent); white-space:nowrap; }
+  code { font-family:Consolas,monospace; background:#f1f5f9; padding:1px 6px; border-radius:4px; font-size:13px; }
+  .note { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin:16px 0; font-size:14px; }
+  .muted { color:var(--muted); font-size:13px; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#1a1d24; --text:#e5e7eb; --border:#2d3340; --muted:#9ca3af; --accent:#60a5fa; }
+    th { background:#1e293b; } code { background:#23272f; }
+    .note { background:#2a2415; border-color:#6b5d1f; }
+  }
+</style>
+</head>
+<body>
+<h1>🗺️ 实施计划总览 — 纳指定投监控系统</h1>
+<p class="sub">2026-07-05 · 完整可执行计划见同目录 <code>2026-07-05-nasdaq-dca-system.md</code>（13 个任务，每步含代码与验收命令）</p>
+
+<h2>任务地图</h2>
+<table>
+  <tr><th>阶段</th><th>#</th><th>任务</th><th>产出 / 验收</th></tr>
+  <tr><td rowspan="7" class="phase">P1<br>骨架</td>
+      <td>1</td><td>项目脚手架</td><td><code>config.yaml</code>（全部参数唯一来源）、依赖、venv；git init 需你授权</td></tr>
+  <tr><td>2</td><td>数据模型 + 回撤档位规则</td><td><code>Signals / Decision</code> 数据类；档位边界单测（9.9% vs 10.0%）</td></tr>
+  <tr><td>3</td><td>利率修正 + 取整 + 上限</td><td>×0.8 / ×1.2 修正，0.25 档取整，2.0x 封顶；10 个单测全绿</td></tr>
+  <tr><td>4</td><td>行情数据源 ^NDX/^VIX</td><td>纯函数算回撤/均线（可测），yfinance 薄封装；真实拉取冒烟</td></tr>
+  <tr><td>5</td><td>利率数据源</td><td>FRED 主源 + ^TNX 自动回退</td></tr>
+  <tr><td>6</td><td>信号编排 + 历史场景测试</td><td>2020疫情底→1.75x / 2022熊底→2.0x / 2024高位→1.0x 三快照断言</td></tr>
+  <tr><td>7</td><td>CLI + 历史存档</td><td><code>python main.py --mode monthly --dry-run</code> 输出决策 JSON ✅ <strong>P1 里程碑</strong></td></tr>
+  <tr><td rowspan="3" class="phase">P2<br>报告</td>
+      <td>8</td><td>HTML 报告渲染</td><td>结论大字 + 信号面板 + 迷你走势图 + 偏热提示；本地预览文件</td></tr>
+  <tr><td>9</td><td>QQ 邮箱推送</td><td>真实收到一封报告邮件（需你的 SMTP 授权码）</td></tr>
+  <tr><td>10</td><td>月度 Actions 工作流</td><td>手动触发全绿、bot 回写 history ✅ <strong>P2 里程碑</strong>（需你建 GitHub 私有仓库 + 配 5 个 Secrets）</td></tr>
+  <tr><td class="phase">P3<br>提醒</td>
+      <td>11</td><td>每日触发检查 + 去重</td><td>跌穿 -10/-20/-30% 提醒、30 天去重、单日 -4% 快讯；6 个单测 ✅ <strong>P3 里程碑</strong></td></tr>
+  <tr><td rowspan="2" class="phase">P4<br>点缀</td>
+      <td>12</td><td>DeepSeek AI 点评</td><td>报告出现点评区块；key 错误时报告照常发（降级验证）</td></tr>
+  <tr><td>13</td><td>QQQ PE 尽力而为</td><td>PE 显示数值或"缺失（辅助信号）" ✅ <strong>P4 = 全部完成</strong></td></tr>
+</table>
+
+<h2>需要你参与的节点</h2>
+<table>
+  <tr><th>时点</th><th>你要做的事</th></tr>
+  <tr><td>Task 1 开始时</td><td>确认是否允许 <code>git init</code> 与本会话内逐任务 commit（不会 push）</td></tr>
+  <tr><td>Task 9</td><td>提供 QQ 邮箱 + SMTP 授权码（写入本地 <code>.env</code>，不入库）</td></tr>
+  <tr><td>Task 10</td><td>GitHub 建私有仓库、由你执行 push、配置 5 个 Secrets、手动触发一次工作流</td></tr>
+  <tr><td>Task 12</td><td>提供 DeepSeek key 写入 <code>.env</code></td></tr>
+</table>
+
+<div class="note"><strong>硬约束回顾：</strong>月度基准 1000 元；档位 10/20/30% → 1.25/1.5/2.0x；上限 2.0x（2000 元）；规则引擎纯函数；辅助信号失败只降级不崩溃；AI 点评永不阻塞发报。</div>
+
+<p class="muted">— 总览结束 · 执行进度以 markdown 计划中的 checkbox 为准 —</p>
+</body>
+</html>

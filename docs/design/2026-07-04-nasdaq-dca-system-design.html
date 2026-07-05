@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>纳指定投监控系统 — 设计文档</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --text: #1f2329; --muted: #6b7280;
+    --accent: #2563eb; --accent-light: #eff6ff; --border: #e5e7eb;
+    --ok: #16a34a; --warn: #d97706; --risk: #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.75;
+    max-width: 960px; margin: 0 auto; padding: 32px 20px 80px;
+  }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 28px; font-size: 14px; }
+  h2 {
+    font-size: 19px; margin: 40px 0 14px; padding-left: 12px;
+    border-left: 4px solid var(--accent);
+  }
+  h3 { font-size: 15.5px; margin: 20px 0 8px; }
+  p { margin-bottom: 10px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 24px; margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  th { background: var(--accent-light); font-weight: 600; }
+  code, pre {
+    font-family: Consolas, "Courier New", monospace;
+    background: #f1f5f9; border-radius: 4px; font-size: 13px;
+  }
+  code { padding: 1px 6px; }
+  pre { padding: 14px 16px; overflow-x: auto; margin: 10px 0; line-height: 1.6; }
+  .tag {
+    display: inline-block; font-size: 12px; padding: 2px 10px;
+    border-radius: 20px; margin-right: 6px; font-weight: 600;
+  }
+  .tag-ok { background: #dcfce7; color: var(--ok); }
+  .tag-warn { background: #fef3c7; color: var(--warn); }
+  .tag-risk { background: #fee2e2; color: var(--risk); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--accent-light); border-radius: 8px; padding: 14px 16px; margin: 12px 0;
+    font-size: 14px;
+  }
+  .flow .step {
+    background: var(--card); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 6px 12px; font-weight: 500;
+  }
+  .flow .arrow { color: var(--accent); font-weight: bold; }
+  ul, ol { padding-left: 24px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  .highlight {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+    padding: 14px 18px; margin: 14px 0;
+  }
+  .toc { font-size: 14px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .muted { color: var(--muted); font-size: 13px; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #1a1d24; --text: #e5e7eb; --muted: #9ca3af;
+      --accent: #60a5fa; --accent-light: #1e293b; --border: #2d3340;
+    }
+    code, pre { background: #23272f; }
+    .highlight { background: #2a2415; border-color: #6b5d1f; }
+    th { background: var(--accent-light); }
+    .tag-ok { background: #14351f; }
+    .tag-warn { background: #3a2e10; }
+    .tag-risk { background: #3a1515; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📈 纳指定投监控系统 — 设计文档</h1>
+<p class="subtitle">2026-07-04 · v1 草案 · 状态：待评审</p>
+
+<div class="card toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#goal">目标与边界</a></li>
+    <li><a href="#arch">总体架构</a></li>
+    <li><a href="#signals">信号体系与数据源</a></li>
+    <li><a href="#rules">定投规则引擎（核心）</a></li>
+    <li><a href="#report">报告与推送形态</a></li>
+    <li><a href="#ai">AI 点评模块</a></li>
+    <li><a href="#storage">数据存储与历史记录</a></li>
+    <li><a href="#test">测试与验证策略</a></li>
+    <li><a href="#risk">风险点与应对</a></li>
+    <li><a href="#phases">分阶段实施</a></li>
+  </ol>
+</div>
+
+<h2 id="goal">1. 目标与边界</h2>
+<div class="card">
+  <p><strong>一句话定义：</strong>每月定时产出一份"纳指 100 该投多少"的规则化建议报告，并在市场大幅波动时即时提醒，帮助使用者克服人性、纪律化定投 QQQ / 纳指 ETF。</p>
+  <h3>✅ 做什么</h3>
+  <ul>
+    <li>每月 1 日生成定投报告：估值 / 回撤 / 利率 / 情绪四维信号 → 按规则给出本期定投倍数</li>
+    <li>每日静默检查触发条件（如回撤破 -20%），仅在触发时推送提醒</li>
+    <li>AI 结合当期数据给一段宏观点评（参考性质，不影响规则输出）</li>
+    <li>记录每期信号与建议的历史，可回看规则表现</li>
+  </ul>
+  <h3>🚫 不做什么（YAGNI）</h3>
+  <ul>
+    <li>不做个股分析、不做自动下单、不做实时行情</li>
+    <li>不做 Web 仪表盘（v1 不做，报告本身就是 HTML，够看）</li>
+    <li>不做策略回测框架（先跑起来，之后有需要再补简单回测）</li>
+  </ul>
+</div>
+
+<h2 id="arch">2. 总体架构</h2>
+<div class="card">
+  <div class="flow">
+    <span class="step">GitHub Actions 定时触发</span><span class="arrow">→</span>
+    <span class="step">Python 拉取数据</span><span class="arrow">→</span>
+    <span class="step">规则引擎计算</span><span class="arrow">→</span>
+    <span class="step">AI 点评（可选）</span><span class="arrow">→</span>
+    <span class="step">渲染 HTML 报告</span><span class="arrow">→</span>
+    <span class="step">SMTP 邮件推送</span>
+  </div>
+  <h3>两条定时流水线</h3>
+  <table>
+    <tr><th>工作流</th><th>频率</th><th>行为</th></tr>
+    <tr><td><code>monthly-report.yml</code></td><td>每月 1 日（美东收盘后）</td><td>完整报告 + 定投建议，<strong>无论如何都发</strong></td></tr>
+    <tr><td><code>daily-check.yml</code></td><td>每个交易日一次</td><td>只算触发条件，<strong>触发才发</strong>，平时静默</td></tr>
+  </table>
+  <h3>项目结构（示意）</h3>
+  <pre>stock-analysis/
+├── .github/workflows/     # 两个定时工作流
+├── src/
+│   ├── datasources/       # 每个数据源一个模块，统一接口
+│   ├── rules.py           # 定投规则引擎（纯函数，可独立测试）
+│   ├── commentary.py      # AI 点评
+│   ├── report.py          # HTML 报告渲染（Jinja2 模板）
+│   └── notify.py          # 邮件发送
+├── config.yaml            # 规则参数（倍数档位、阈值）全部集中在这
+├── history/               # 每期信号与建议的 JSON 存档
+└── tests/</pre>
+  <p class="muted">设计原则：规则引擎是<strong>纯函数</strong>（输入信号 → 输出倍数），不碰网络不碰 IO，方便单测和日后回测复用。数据源模块统一返回标准结构，坏一个不影响整体（降级出报告并标注缺失）。</p>
+</div>
+
+<h2 id="signals">3. 信号体系与数据源</h2>
+<div class="card">
+  <table>
+    <tr><th>信号</th><th>指标</th><th>数据源</th><th>可靠性</th></tr>
+    <tr>
+      <td><strong>趋势/回撤</strong>（主信号）</td>
+      <td>距历史最高点回撤 %、200 日均线位置</td>
+      <td>yfinance：<code>^NDX</code>（纳指100）日线</td>
+      <td><span class="tag tag-ok">高</span>免费无 key</td>
+    </tr>
+    <tr>
+      <td><strong>利率环境</strong>（主信号）</td>
+      <td>10 年期美债收益率及 3 个月变化方向</td>
+      <td>FRED API（免费 key）；备用 yfinance <code>^TNX</code></td>
+      <td><span class="tag tag-ok">高</span></td>
+    </tr>
+    <tr>
+      <td><strong>估值</strong>（辅助信号）</td>
+      <td>纳指100 PE 所处近 10 年分位</td>
+      <td>⚠️ 无理想免费源，方案见下</td>
+      <td><span class="tag tag-warn">中</span></td>
+    </tr>
+    <tr>
+      <td><strong>情绪</strong>（辅助信号）</td>
+      <td>VIX 水平</td>
+      <td>yfinance：<code>^VIX</code></td>
+      <td><span class="tag tag-ok">高</span></td>
+    </tr>
+  </table>
+  <div class="highlight">
+    <strong>⚠️ 估值数据是唯一的硬骨头：</strong>纳指 100 整体 PE 没有权威免费 API。候选方案：
+    ① 用 QQQ 的 <code>trailingPE</code>（yfinance 可取但时有缺失）；
+    ② 自算：取 ^NDX 点位 ÷ 成分股加权盈利（工作量大）；
+    ③ <strong>推荐</strong>：v1 先用"盈利收益率替代法"—— 用 QQQ trailingPE 可得时记录并积累历史，取不到就降级为"估值信号缺失"，报告如实标注。估值本来就是辅助信号，缺了不影响主规则。
+  </div>
+  <p class="muted">聊天中确认过的设计取向：纳指过去 15 年长期"贵"，PE 分位择时容易一直空仓踏空，所以<strong>回撤 + 利率是主信号，估值只做参考展示</strong>。</p>
+</div>
+
+<h2 id="rules">4. 定投规则引擎（核心）</h2>
+<div class="card">
+  <p>基准：<strong>每月 1000 元人民币</strong>（记为 <code>1.0x</code>）。系统只输出倍数与金额，<strong>标的无关</strong>——执行时可买 A 股 513100（QDII）、QQQ 碎股或 3086.HK，切换标的不需要改系统。规则自上而下匹配，<strong>取第一条命中的</strong>：</p>
+  <table>
+    <tr><th>#</th><th>条件（基于 ^NDX 距历史高点回撤）</th><th>本期定投倍数</th><th>单月金额</th><th>含义</th></tr>
+    <tr><td>1</td><td>回撤 ≥ 30%</td><td><strong>2.0x</strong></td><td>2000 元</td><td>历史级机会（2000/2008/2022 级别）</td></tr>
+    <tr><td>2</td><td>回撤 ≥ 20%</td><td><strong>1.5x</strong></td><td>1500 元</td><td>技术性熊市，显著加码</td></tr>
+    <tr><td>3</td><td>回撤 ≥ 10%</td><td><strong>1.25x</strong></td><td>1250 元</td><td>常规回调，温和加码</td></tr>
+    <tr><td>4</td><td>回撤 &lt; 10%（默认）</td><td><strong>1.0x</strong></td><td>1000 元</td><td>正常定投，不猜顶</td></tr>
+  </table>
+  <p class="muted">档位经预算校准：最坏情况（深熊连续加码）单月支出 2000 元、持续一年额外支出约 6000 元——规则宁可温和到"肯定能执行"，也不激进到"理论最优但执行不了"。</p>
+  <h3>利率修正项（叠加在上表结果上）</h3>
+  <ul>
+    <li>10 年期美债收益率 <strong>&gt; 4.5%</strong> 且 3 个月内上行 → 倍数 <strong>×0.8</strong>（高利率压估值，略收敛）</li>
+    <li>收益率 3 个月内下行 <strong>&gt; 50bp</strong> → 倍数 <strong>×1.2</strong>（宽松环境利好成长股）</li>
+    <li>最终倍数四舍五入到 0.25 档，上限 2.0x（2000 元）</li>
+  </ul>
+  <h3>卖出/减仓纪律（先定原则，参数待你确认）</h3>
+  <ul>
+    <li>v1 采取<strong>"不主动择时卖出"</strong>立场：定投的卖出由你的人生资金规划决定，不由市场信号决定</li>
+    <li>系统只做一件事：当 VIX &lt; 13 且指数创新高且利率快速上行同时出现时，报告中<strong>提示"环境偏热，可考虑只投不加码"</strong>，不给卖出指令</li>
+  </ul>
+  <h3>每日触发提醒条件（daily-check）</h3>
+  <table>
+    <tr><th>触发</th><th>提醒内容</th><th>去重</th></tr>
+    <tr><td>回撤首次跌破 -10% / -20% / -30% 档位</td><td>"进入 X 档加仓区，若有闲钱可执行计划外加投"</td><td>每档位 30 天内只提醒一次</td></tr>
+    <tr><td>单日跌幅 &gt; 4%</td><td>大波动快讯 + 当前各信号快照</td><td>每周最多一次</td></tr>
+  </table>
+  <div class="highlight">
+    <strong>📌 已确认的参数</strong>（2026-07-05 与使用者确认，集中在 <code>config.yaml</code> 可改）：
+    ① 月度基准 1000 元，倍数档位 1.25 / 1.5 / 2.0，上限 2.0x；
+    ② 利率修正项保留（仅 ±20% 微调）；
+    ③ 触发提醒同一档位 30 天去重。
+  </div>
+</div>
+
+<h2 id="report">5. 报告与推送形态</h2>
+<div class="card">
+  <h3>月度报告（HTML 邮件）结构</h3>
+  <ol>
+    <li><strong>结论区（最上方大字）</strong>：本期定投倍数 + 一句话理由，例："<strong>本期建议 2.0x</strong> —— 纳指距高点回撤 23%，进入熊市加码区"</li>
+    <li><strong>信号面板</strong>：回撤 / 200 日线 / 10Y 利率 / VIX / PE（若可得），每项带近一年迷你走势图（matplotlib 生成、内嵌 base64，无外链）</li>
+    <li><strong>规则追溯</strong>：命中了哪条规则、修正项如何计算——让你能验证系统没算错</li>
+    <li><strong>AI 宏观点评</strong>：300 字以内，明确标注"参考信息，不构成规则输出"</li>
+    <li><strong>历史记录表</strong>：过去 12 期的建议倍数与当时点位，直观看到纪律的复利</li>
+  </ol>
+  <h3>推送通道</h3>
+  <ul>
+    <li>主通道：<strong>QQ 邮箱 SMTP</strong>（授权码方式，稳定免费，国内直连），HTML 正文</li>
+    <li>凭据全部放 GitHub Secrets：<code>SMTP_PASS</code>、<code>FRED_API_KEY</code>、<code>DEEPSEEK_API_KEY</code></li>
+    <li>预留 notify 接口抽象，日后想加 Server酱微信推送只需新增一个实现</li>
+  </ul>
+</div>
+
+<h2 id="ai">6. AI 点评模块</h2>
+<div class="card">
+  <ul>
+    <li>LLM 供应商可插拔，v1 用 <strong>DeepSeek</strong>（使用者已有 key，每月一次点评成本可忽略；OpenAI 兼容接口，日后想换 GitHub Models / Anthropic 改配置即可）。输入：当期全部信号数值 + 近一月主要宏观事件摘要（Finnhub 免费新闻 API 取市场类新闻标题）</li>
+    <li>Prompt 约束：只解释"市场正在发生什么、信号为什么长这样"，<strong>禁止给出与规则不同的仓位建议</strong></li>
+    <li>降级策略：API 失败时报告照常发出，点评区显示"本期点评生成失败"——AI 是点缀，永远不阻塞主流程</li>
+  </ul>
+</div>
+
+<h2 id="storage">7. 数据存储与历史记录</h2>
+<div class="card">
+  <ul>
+    <li>每期运行结果存 <code>history/YYYY-MM.json</code>（信号快照 + 建议倍数 + 命中规则），由 Actions 跑完后 commit 回仓库</li>
+    <li>好处：Git 即数据库，零成本、天然带审计轨迹；月度数据量极小不会膨胀</li>
+    <li>价格历史不落库，每次从 yfinance 现拉（^NDX 日线拉取只需数秒）</li>
+  </ul>
+</div>
+
+<h2 id="test">8. 测试与验证策略</h2>
+<div class="card">
+  <ul>
+    <li><strong>规则引擎单测</strong>：纯函数，覆盖每个档位边界（回撤 9.9% vs 10.0%）、修正项组合、上限截断</li>
+    <li><strong>历史场景快照测试</strong>：取 2020-03（疫情崩盘）、2022-12（加息熊底）、2024-07（高位）三个真实历史时点的数据固定为 fixture，断言系统给出符合预期的倍数——这是对规则合理性的"穷人回测"</li>
+    <li><strong>端到端 dry-run</strong>：<code>python main.py --dry-run</code> 本地跑通全流程但不发邮件，报告写到本地文件人工检查</li>
+    <li><strong>上线验收</strong>：手动触发 Actions（workflow_dispatch）发一封真实邮件到你邮箱确认格式</li>
+  </ul>
+</div>
+
+<h2 id="risk">9. 风险点与应对</h2>
+<div class="card">
+  <table>
+    <tr><th>风险</th><th>等级</th><th>应对</th></tr>
+    <tr><td>yfinance 非官方接口，可能被 Yahoo 限流/改版</td><td><span class="tag tag-warn">中</span></td><td>数据源模块化，预留 Stooq/Tiingo 备用实现；拉取失败时 Actions 告警邮件</td></tr>
+    <tr><td>纳指100 PE 无稳定免费源</td><td><span class="tag tag-warn">中</span></td><td>降级为可选信号，缺失不影响主规则（见 §3）</td></tr>
+    <tr><td>GitHub Actions cron 有延迟（高峰期可延迟数小时）</td><td><span class="tag tag-ok">低</span></td><td>月度报告对时效不敏感；每日检查设在美东盘后冗余时段</td></tr>
+    <tr><td>规则本身的市场风险：加码规则在长期阴跌中会持续加仓</td><td><span class="tag tag-risk">高</span></td><td>这是策略固有属性而非 bug——倍数上限 4x 控制单期敞口；报告透明展示规则逻辑，最终决策权在人</td></tr>
+    <tr><td>Secrets 泄露（API key、邮箱授权码）</td><td><span class="tag tag-ok">低</span></td><td>私有仓库 + GitHub Secrets，代码中零硬编码</td></tr>
+  </table>
+</div>
+
+<h2 id="phases">10. 分阶段实施</h2>
+<div class="card">
+  <table>
+    <tr><th>阶段</th><th>内容</th><th>验收标准</th></tr>
+    <tr><td><strong>P1 骨架</strong></td><td>数据拉取（^NDX/^TNX/^VIX）+ 规则引擎 + 单测</td><td>本地跑 <code>--dry-run</code> 输出正确倍数，测试全绿</td></tr>
+    <tr><td><strong>P2 报告</strong></td><td>HTML 报告渲染 + 邮件推送 + GitHub Actions 月度工作流</td><td>手动触发 Actions，你的邮箱收到完整报告</td></tr>
+    <tr><td><strong>P3 提醒</strong></td><td>每日触发检查工作流 + 去重逻辑</td><td>用历史大跌日数据模拟，验证触发与去重</td></tr>
+    <tr><td><strong>P4 点缀</strong></td><td>AI 点评 + FRED 利率修正 + PE 信号（尽力而为）</td><td>点评出现在报告中且失败可降级</td></tr>
+  </table>
+  <p class="muted">每阶段独立可用：P1 完成时系统就已经"能告诉你该投几倍"，后面都是体验增强。</p>
+</div>
+
+<p class="muted" style="margin-top:40px">— 设计文档结束 · 评审通过后进入实施计划编写 —</p>
+
+</body>
+</html>

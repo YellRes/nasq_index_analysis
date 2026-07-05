@@ -1,0 +1,29 @@
+base_amount: 1000          # 月度基准（元）
+tiers:                     # 自上而下取第一条命中
+  - { min_drawdown: 30, multiplier: 2.0 }
+  - { min_drawdown: 20, multiplier: 1.5 }
+  - { min_drawdown: 10, multiplier: 1.25 }
+default_multiplier: 1.0
+rate_adjust:
+  enabled: true
+  high_yield: 4.5          # 10Y > 4.5% 且 3 个月上行 → ×tighten_factor
+  easing_drop: 0.5         # 3 个月下行 > 0.5pp → ×easing_factor
+  tighten_factor: 0.8
+  easing_factor: 1.2
+round_step: 0.25
+cap: 2.0
+alerts:
+  drawdown_levels: [10, 20, 30]
+  level_dedup_days: 30
+  daily_drop_pct: 4.0
+  daily_drop_dedup_days: 7
+mail:
+  smtp_host: smtp.qq.com
+  smtp_port: 465
+  subject_monthly: "【纳指定投】{month} 月度报告：本期 {multiplier}x（{amount} 元）"
+  subject_alert: "【纳指提醒】{title}"
+commentary:
+  enabled: true
+  provider: deepseek
+  model: deepseek-chat
+  base_url: https://api.deepseek.com
